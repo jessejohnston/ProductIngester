@@ -7,6 +7,8 @@ import (
 
 	"github.com/jessejohnston/ProductIngester/database"
 	"github.com/jessejohnston/ProductIngester/parser"
+	"github.com/jessejohnston/ProductIngester/product"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -27,7 +29,7 @@ func main() {
 		log.Fatalf("Error creating parser: %v", err)
 	}
 
-	db := getDatabase()
+	db := getDatabaseWriter()
 
 	// Start parsing, receiving a stream of records and parsing errors.
 	records, errors, done := p.Parse()
@@ -50,9 +52,17 @@ func main() {
 }
 
 func getParser(input io.Reader) (Parser, error) {
-	return parser.New(input)
+	convert, err := getConverter()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return parser.New(input, convert)
 }
 
-func getDatabase() Database {
+func getConverter() (parser.Converter, error) {
+	return product.NewConverter(8, 8, 9)
+}
+
+func getDatabaseWriter() DatabaseWriter {
 	return database.New()
 }

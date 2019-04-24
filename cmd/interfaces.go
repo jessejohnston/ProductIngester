@@ -9,7 +9,7 @@ type Parser interface {
 	Parse() (<-chan *product.Record, <-chan error, <-chan bool)
 }
 
-// Database defines the behavior of a product catalog database.
-type Database interface {
+// DatabaseWriter defines the behavior of inserting into a product catalog database.
+type DatabaseWriter interface {
 	InsertProductRecord(r *product.Record) error
 }
