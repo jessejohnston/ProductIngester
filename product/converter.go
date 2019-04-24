@@ -20,6 +20,9 @@ var (
 
 	// ErrBadParameter is the error returned when invalid input is provided.
 	ErrBadParameter = errors.New("Invalid parameter")
+
+	// ErrBadFormat is the error returned when a data field includes unexpected content
+	ErrBadFormat = errors.New("Bad format")
 )
 
 // NewConverter returns a new converter of fixed length text fields.
@@ -40,7 +43,12 @@ func (c *Converter) ToNumber(text []byte) (int, error) {
 	if len(text) != c.numberLength {
 		return 0, errors.WithStack(ErrBadFieldLength)
 	}
-	return strconv.Atoi(string(text))
+	num, err := strconv.Atoi(string(text))
+	if err != nil {
+		return 0, errors.WithStack(ErrBadFormat)
+	}
+
+	return num, nil
 }
 
 // ToString converts text to a string.
@@ -55,7 +63,7 @@ func (c *Converter) ToCurrency(text []byte) (decimal.Decimal, error) {
 	}
 	unscaled, err := decimal.NewFromString(string(text))
 	if err != nil {
-		return decimal.Decimal{}, errors.WithStack(err)
+		return decimal.Decimal{}, errors.WithStack(ErrBadFormat)
 	}
 	return unscaled.Shift(-2), nil
 }
@@ -65,5 +73,22 @@ func (c *Converter) ToFlags(text []byte) (Flags, error) {
 	if len(text) != c.flagsLength {
 		return FlagNone, errors.WithStack(ErrBadFieldLength)
 	}
-	return 0, nil
+
+	var flags Flags
+
+	for i, b := range text {
+		if b != 'Y' && b != 'N' {
+			return 0, errors.WithStack(ErrBadFormat)
+		}
+		if b == 'Y' {
+			switch i {
+			case 2:
+				flags |= FlagPerWeight
+			case 4:
+				flags |= FlagTaxable
+			}
+		}
+	}
+
+	return flags, nil
 }
