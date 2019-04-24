@@ -13,3 +13,7 @@ before_test:
 
 test_script:
   - go test ./...
+
+build_script:
+  - cd cmd
+  - go build -o ingest
