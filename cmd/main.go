@@ -11,10 +11,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Field lengths in the product catalog file
+const (
+	numberFieldLength   = 8
+	currencyFieldLength = 8
+	flagsFieldLength    = 9
+)
+
 func main() {
 	args := os.Args
 	if len(args) < 2 {
-		log.Println("usage: ingest <filename>")
+		println("usage: ingest <filename>")
+		os.Exit(1)
 	}
 
 	filename := os.Args[1]
@@ -60,7 +68,7 @@ func getParser(input io.Reader) (Parser, error) {
 }
 
 func getConverter() (parser.Converter, error) {
-	return product.NewConverter(8, 8, 9)
+	return product.NewConverter(numberFieldLength, currencyFieldLength, flagsFieldLength)
 }
 
 func getDatabaseWriter() DatabaseWriter {
