@@ -6,7 +6,7 @@ clone_folder: /usr/go/src/github.com/jessejohnston/ProductIngester
 environment:
   GOPATH: /usr/go/
 
-stack: go 1.10
+stack: go 1.11
 
 before_test:
   - go vet ./...
