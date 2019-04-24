@@ -10,3 +10,5 @@ branches:
 
   script:
   - go test ./...
+  - cd cmd/ingeste
+  - go build
