@@ -13,8 +13,8 @@ type Error struct {
 	err   error
 }
 
-// NewError creates a new product parser error
-func NewError(line, col int, field []byte, msg string, err error) Error {
+// NewParserError creates a new product parser error
+func NewParserError(line, col int, field []byte, msg string, err error) Error {
 	return Error{
 		line:  line,
 		col:   col,

@@ -85,53 +85,69 @@ func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
 	record := &product.Record{}
 	var err error
 
-	record.ID, err = p.convert.ToNumber(text[0:8])
+	fragment := text[0:8]
+	record.ID, err = p.convert.ToNumber(fragment)
 	if err != nil {
-		return nil, NewError(row, 0, text[0:8], "Error parsing ID", err)
+		return nil, NewParserError(row, 0, fragment, "Error parsing ID", err)
 	}
 
-	record.Description = p.convert.ToString(text[9:68])
+	fragment = text[9:68]
+	record.Description = p.convert.ToString(fragment)
 
-	record.Price, err = p.convert.ToCurrency(text[69:77])
+	fragment = text[69:77]
+	record.Price, err = p.convert.ToCurrency(fragment)
 	if err != nil {
-		return nil, NewError(row, 69, text[69:77], "Error parsing price", err)
+		return nil, NewParserError(row, 69, fragment, "Error parsing price", err)
 	}
 
 	// If price is zero, read the split prices and use those instead.
 	if record.Price.Equal(decimal.Zero) {
-		splitPrice, err := p.convert.ToCurrency(text[87:95])
+		fragment = text[87:95]
+		splitPrice, err := p.convert.ToCurrency(fragment)
 		if err != nil {
-			return nil, NewError(row, 87, text[87:95], "Error parsing split price", err)
+			return nil, NewParserError(row, 87, fragment, "Error parsing split price", err)
 		}
-		forX, err := p.convert.ToNumber(text[105:113])
+
+		fragment = text[105:113]
+		forX, err := p.convert.ToNumber(fragment)
 		if err != nil {
-			return nil, NewError(row, 105, text[87:95], "Error parsing for X", err)
+			return nil, NewParserError(row, 105, fragment, "Error parsing for X", err)
+		}
+		if forX == 0 {
+			return nil, NewParserError(row, 105, fragment, "Error calculating split price (zero for X)", err)
 		}
 		record.Price = splitPrice.Div(decimal.New(int64(forX), 0))
 
-		splitPromoPrice, err := p.convert.ToCurrency(text[96:104])
+		fragment = text[96:104]
+		splitPromoPrice, err := p.convert.ToCurrency(fragment)
 		if err != nil {
-			return nil, NewError(row, 96, text[96:104], "Error parsing split promo price", err)
+			return nil, NewParserError(row, 96, text[96:104], "Error parsing split promo price", err)
 		}
 
 		if splitPromoPrice.GreaterThan(decimal.Zero) {
-			promoForX, err := p.convert.ToNumber(text[114:122])
+			fragment = text[114:122]
+			promoForX, err := p.convert.ToNumber(fragment)
 			if err != nil {
-				return nil, NewError(row, 114, text[114:122], "Error parsing promo for X", err)
+				return nil, NewParserError(row, 114, fragment, "Error parsing promo for X", err)
 			}
-
+			if promoForX == 0 {
+				return nil, NewParserError(row, 114, fragment, "Error calculating promo split price (zero for X)", err)
+			}
+	
 			record.PromoPrice = splitPromoPrice.Div(decimal.New(int64(promoForX), 0))
 		}
 	} else {
-		record.PromoPrice, err = p.convert.ToCurrency(text[78:86])
+		fragment = text[78:86]
+		record.PromoPrice, err = p.convert.ToCurrency(fragment)
 		if err != nil {
-			return nil, NewError(row, 78, text[78:86], "Error parsing promotional price", err)
+			return nil, NewParserError(row, 78, fragment, "Error parsing promotional price", err)
 		}
 	}
 
-	flags, err := p.convert.ToFlags(text[123:132])
+	fragment = text[123:132]
+	flags, err := p.convert.ToFlags(fragment)
 	if err != nil {
-		return nil, NewError(row, 123, text[123:132], "Error parsing flags", err)
+		return nil, NewParserError(row, 123, fragment, "Error parsing flags", err)
 	}
 
 	if flags.PerWeight() {
