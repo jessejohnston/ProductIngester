@@ -13,3 +13,13 @@ const (
 	// FlagTaxable indicates a product that is taxable.
 	FlagTaxable Flags = 2
 )
+
+// PerWeight returns true if the flags include FlagPerWeight
+func (f Flags) PerWeight() bool {
+	return f&FlagPerWeight == FlagPerWeight
+}
+
+// Taxable returns true if the flags include FlagTaxable
+func (f Flags) Taxable() bool {
+	return f&FlagTaxable == FlagTaxable
+}

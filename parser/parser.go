@@ -134,13 +134,13 @@ func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
 		return nil, NewError(row, 123, text[123:132], "Error parsing flags", err)
 	}
 
-	if flags&product.FlagPerWeight == product.FlagPerWeight {
+	if flags.PerWeight() {
 		record.Unit = product.UnitPound
 	} else {
 		record.Unit = product.UnitEach
 	}
 
-	if flags&product.FlagTaxable == product.FlagTaxable {
+	if flags.Taxable() {
 		record.TaxRate = decimal.NewFromFloat32(TaxRate)
 	}
 
