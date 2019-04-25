@@ -10,8 +10,22 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// TaxRate is the product tax rate.
-const TaxRate = 0.07775
+const (
+	// RecordLength is the expected length of each flat-file record
+	RecordLength = 142
+
+	// TaxRate is the product tax rate.
+	TaxRate = 0.07775
+
+	// NumberFieldLength is the expected length of all number fields.
+	NumberFieldLength   = 8
+
+	// CurrencyFieldLength is the expected length of all currency fields.
+	CurrencyFieldLength = 8
+
+	// FlagsFieldLength is the expected length of all flag fields.
+	FlagsFieldLength    = 9
+)
 
 var (
 	// ErrBadParameter is the error returned when invalid input is provided.
@@ -19,6 +33,7 @@ var (
 )
 
 // Converter is the behavior of a type that converts fixed-length text values to other types.
+//go:generate mockery -name Converter
 type Converter interface {
 	ToNumber(text []byte) (int, error)
 	ToString(text []byte) string
@@ -52,7 +67,8 @@ func New(input io.Reader, c Converter) (*Parser, error) {
 
 // Parse reads each line from the input and sends parsed records to the output channel.
 func (p *Parser) Parse() (<-chan *product.Record, <-chan error, <-chan bool) {
-	// "go" runs p.execute() asynchronously
+	// "go" runs p.execute() asynchronously so that the caller can start reading
+	// records and errors off the returned channels.
 	go p.execute()
 
 	return p.records, p.errors, p.done
@@ -69,7 +85,7 @@ func (p *Parser) execute() {
 
 	for row := 0; scanner.Scan(); row++ {
 		data := scanner.Bytes()
-		record, err := p.toRecord(row, data)
+		record, err := p.ParseRecord(row, data)
 		if err != nil {
 			log.Println(errors.WithStack(err))
 			p.errors <- err
@@ -81,7 +97,11 @@ func (p *Parser) execute() {
 	p.done <- true
 }
 
-func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
+func (p *Parser) ParseRecord(row int, text []byte) (*product.Record, error) {
+	if len(text) != RecordLength {
+		return nil, errors.WithStack(ErrBadParameter)
+	}
+
 	record := &product.Record{}
 	var err error
 
@@ -95,13 +115,13 @@ func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
 	record.Description = p.convert.ToString(fragment)
 
 	fragment = text[69:77]
-	record.Price, err = p.convert.ToCurrency(fragment)
+	singularPrice, err := p.convert.ToCurrency(fragment)
 	if err != nil {
-		return nil, NewParserError(row, 69, fragment, "Error parsing price", err)
+		return nil, NewParserError(row, 69, fragment, "Error parsing singular price", err)
 	}
 
-	// If price is zero, read the split prices and use those instead.
-	if record.Price.Equal(decimal.Zero) {
+	// If singular price is zero, read the split price and use it instead.
+	if singularPrice.Equal(decimal.Zero) {
 		fragment = text[87:95]
 		splitPrice, err := p.convert.ToCurrency(fragment)
 		if err != nil {
@@ -116,8 +136,21 @@ func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
 		if forX == 0 {
 			return nil, NewParserError(row, 105, fragment, "Error calculating split price (zero for X)", err)
 		}
-		record.Price = splitPrice.Div(decimal.New(int64(forX), 0))
 
+		// Round to 4 decimal places, half down
+		record.Price = splitPrice.Div(decimal.New(int64(forX), 0)).RoundBank(4)
+	} else {
+		record.Price = singularPrice
+	}
+
+	fragment = text[78:86]
+	singularPromoPrice, err := p.convert.ToCurrency(fragment)
+	if err != nil {
+		return nil, NewParserError(row, 78, fragment, "Error parsing singular promotional price", err)
+	}
+
+	// If singular promo price is zero, read the split promo price and use it instead.
+	if singularPromoPrice.Equal(decimal.Zero) {
 		fragment = text[96:104]
 		splitPromoPrice, err := p.convert.ToCurrency(fragment)
 		if err != nil {
@@ -134,15 +167,15 @@ func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
 				return nil, NewParserError(row, 114, fragment, "Error calculating promo split price (zero for X)", err)
 			}
 	
-			record.PromoPrice = splitPromoPrice.Div(decimal.New(int64(promoForX), 0))
+			// Round to 4 decimal places, half down
+			record.PromoPrice = splitPromoPrice.Div(decimal.New(int64(promoForX), 0)).RoundBank(4)
 		}
 	} else {
-		fragment = text[78:86]
-		record.PromoPrice, err = p.convert.ToCurrency(fragment)
-		if err != nil {
-			return nil, NewParserError(row, 78, fragment, "Error parsing promotional price", err)
-		}
+		record.PromoPrice = singularPromoPrice
 	}
+
+	record.DisplayPrice = "$" + record.Price.StringFixed(2)
+	record.PromoDisplayPrice = "$" + record.PromoPrice.StringFixed(2)
 
 	fragment = text[123:132]
 	flags, err := p.convert.ToFlags(fragment)
@@ -158,6 +191,8 @@ func (p *Parser) toRecord(row int, text []byte) (*product.Record, error) {
 
 	if flags.Taxable() {
 		record.TaxRate = decimal.NewFromFloat32(TaxRate)
+	} else {
+		record.TaxRate = decimal.Zero
 	}
 
 	record.Size = p.convert.ToString(text[133:142])

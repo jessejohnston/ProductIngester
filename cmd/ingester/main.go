@@ -1,21 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 
-	"github.com/jessejohnston/ProductIngester/database"
 	"github.com/jessejohnston/ProductIngester/parser"
 	"github.com/jessejohnston/ProductIngester/product"
 	"github.com/pkg/errors"
-)
-
-// Field lengths in the product catalog file
-const (
-	numberFieldLength   = 8
-	currencyFieldLength = 8
-	flagsFieldLength    = 9
 )
 
 func main() {
@@ -37,21 +30,19 @@ func main() {
 		log.Fatalf("Error creating parser: %v", err)
 	}
 
-	db := getDatabaseWriter()
-
 	// Start parsing, receiving a stream of records and parsing errors.
 	records, errors, done := p.Parse()
 
 	// As each record (or error) is generated, add the record to the database or log the error.
+	var results []*product.Record
+
 	for {
 		select {
 		case err := <-errors:
 			log.Println(err)
 		case r := <-records:
-			err := db.InsertProductRecord(r)
-			if err != nil {
-				log.Println(err)
-			}
+			fmt.Println(r)
+			results = append(results, r)
 		case <-done:
 			log.Println("Done")
 			os.Exit(0)
@@ -68,9 +59,5 @@ func getParser(input io.Reader) (Parser, error) {
 }
 
 func getConverter() (parser.Converter, error) {
-	return product.NewConverter(numberFieldLength, currencyFieldLength, flagsFieldLength)
-}
-
-func getDatabaseWriter() DatabaseWriter {
-	return database.New()
+	return product.NewConverter(parser.NumberFieldLength, parser.CurrencyFieldLength, parser.FlagsFieldLength)
 }

@@ -2,6 +2,7 @@ package product
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -53,7 +54,7 @@ func (c *Converter) ToNumber(text []byte) (int, error) {
 
 // ToString converts text to a string.
 func (c *Converter) ToString(text []byte) string {
-	return string(text)
+	return strings.TrimSpace(string(text))
 }
 
 // ToCurrency converts text to a decimal value.

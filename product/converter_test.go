@@ -111,6 +111,11 @@ func (s *converterTestSuite) Test_ToString_ReturnsString() {
 	require.Equal(s.T(), "delicious pickles", str)
 }
 
+func (s *converterTestSuite) Test_ToString_WithLeadingTrailingWhitespace_ReturnsTrimmedString() {
+	str := s.convert.ToString([]byte("  delicious pickles  "))
+	require.Equal(s.T(), "delicious pickles", str)
+}
+
 func (s *converterTestSuite) Test_ToCurrency_ShortField_ReturnsError() {
 	_, err := s.convert.ToCurrency([]byte("001"))
 	require.Error(s.T(), err)
