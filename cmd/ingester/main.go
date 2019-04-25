@@ -33,7 +33,7 @@ func main() {
 	// Start parsing, receiving a stream of records and parsing errors.
 	records, errors, done := p.Parse()
 
-	// As each record (or error) is generated, add the record to the database or log the error.
+	// As each record (or error) is generated, add the record to the results array or log the error.
 	var results []*product.Record
 
 	for {
